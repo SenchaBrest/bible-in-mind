@@ -17,17 +17,20 @@ class EditableTextWidget extends StatefulWidget {
 
 class _EditableTextWidgetState extends State<EditableTextWidget> {
   late TextEditingController _textController;
-  late ScrollController _scrollController;
   late List<Color> _textColors;
   late List<String> _displayText;
   late List<bool> _hiddenWords;
   String _defaultText = '';
   int _cursorLogicalPosition = 0;
 
+  // Добавляем GlobalKey для RichText
+  final GlobalKey _richTextKey = GlobalKey();
+  // Добавляем ScrollController для управления скроллингом
+  final ScrollController _scrollController = ScrollController();
+
   @override
   void initState() {
     super.initState();
-    _scrollController = ScrollController();
     _initializeState();
   }
 
@@ -48,8 +51,8 @@ class _EditableTextWidgetState extends State<EditableTextWidget> {
         _cursorLogicalPosition = _calculateLogicalCursorPosition(
           _textController.selection.base.offset,
         );
-        _scrollToCursor();
       });
+        _scrollToLastEnteredCharacter(); // Вызываем скроллинг при изменении текста
     });
   }
 
@@ -67,12 +70,12 @@ class _EditableTextWidgetState extends State<EditableTextWidget> {
   List<bool> _getHiddenWordsList(String text, double percentage) {
     final List<String> tokens = [];
     final List<bool> isWord = [];
-    
+
     String currentWord = '';
-    
+
     for (int i = 0; i < text.length; i++) {
       final char = text[i];
-      
+
       if (RegExp(r'[a-zA-Zа-яА-Я]').hasMatch(char)) {
         currentWord += char;
       } else {
@@ -85,7 +88,7 @@ class _EditableTextWidgetState extends State<EditableTextWidget> {
         isWord.add(false);
       }
     }
-    
+
     if (currentWord.isNotEmpty) {
       tokens.add(currentWord);
       isWord.add(true);
@@ -93,12 +96,12 @@ class _EditableTextWidgetState extends State<EditableTextWidget> {
 
     final wordCount = isWord.where((element) => element).length;
     final hiddenCount = (wordCount * percentage).round();
-    
+
     final wordIndexes = List<int>.generate(
       tokens.length,
       (i) => i,
     ).where((i) => isWord[i]).toList();
-    
+
     final random = Random();
     for (int i = wordIndexes.length - 1; i > 0; i--) {
       final j = random.nextInt(i + 1);
@@ -106,14 +109,14 @@ class _EditableTextWidgetState extends State<EditableTextWidget> {
       wordIndexes[i] = wordIndexes[j];
       wordIndexes[j] = temp;
     }
-    
+
     final hiddenTokens = List<bool>.filled(tokens.length, false);
     for (int i = 0; i < hiddenCount; i++) {
       if (i < wordIndexes.length) {
         hiddenTokens[wordIndexes[i]] = true;
       }
     }
-    
+
     final hiddenList = <bool>[];
     for (int i = 0; i < tokens.length; i++) {
       final token = tokens[i];
@@ -123,7 +126,7 @@ class _EditableTextWidgetState extends State<EditableTextWidget> {
         hiddenList.addAll(List<bool>.filled(token.length, false));
       }
     }
-    
+
     return hiddenList;
   }
 
@@ -152,26 +155,6 @@ class _EditableTextWidgetState extends State<EditableTextWidget> {
     return _defaultText.length;
   }
 
-  void _scrollToCursor() {
-    final cursorOffset = _cursorLogicalPosition * 18.0; // Approximate character width.
-    final screenHeight = MediaQuery.of(context).size.height;
-    final lineHeight = 18.0; // Character height.
-
-    if (cursorOffset > _scrollController.offset + screenHeight - lineHeight) {
-      _scrollController.animateTo(
-        cursorOffset - screenHeight + lineHeight * 2,
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeInOut,
-      );
-    } else if (cursorOffset < _scrollController.offset) {
-      _scrollController.animateTo(
-        cursorOffset - lineHeight,
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeInOut,
-      );
-    }
-  }
-
   @override
   void dispose() {
     _textController.dispose();
@@ -194,12 +177,48 @@ class _EditableTextWidgetState extends State<EditableTextWidget> {
             } else {
               _displayText[i] = '_';
               _textColors[i] = Colors.grey;
+              
             }
           }
           inputPos++;
         }
       }
     });
+  }
+
+  void _scrollToLastEnteredCharacter() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Future.microtask(() {
+        final RenderBox renderBox = _richTextKey.currentContext?.findRenderObject() as RenderBox;
+
+        final double lastEnteredCharOffset = _getLastEnteredCharacterOffset(renderBox);
+        print(lastEnteredCharOffset);
+
+        _scrollController.animateTo(
+          lastEnteredCharOffset,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+        );
+      });
+    });
+  }
+
+  double _getLastEnteredCharacterOffset(RenderBox renderBox) {
+    final richText = _richTextKey.currentWidget as RichText;
+    final textSpan = richText.text as TextSpan;
+
+    final TextPainter textPainter = TextPainter(
+      text: textSpan,
+      textDirection: TextDirection.ltr,
+    );
+
+    textPainter.layout(maxWidth: renderBox.size.width);
+    final offset = textPainter.getOffsetForCaret(
+      TextPosition(offset: _cursorLogicalPosition),
+      Rect.zero,
+    );
+
+    return offset.dy;
   }
 
   @override
@@ -213,6 +232,7 @@ class _EditableTextWidgetState extends State<EditableTextWidget> {
           child: Stack(
             children: [
               RichText(
+                key: _richTextKey,
                 text: TextSpan(
                   children: List.generate(
                     _defaultText.length,
