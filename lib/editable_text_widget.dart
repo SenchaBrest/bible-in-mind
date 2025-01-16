@@ -236,6 +236,7 @@ Widget build(BuildContext context) {
         padding: const EdgeInsets.all(8.0),
         child: SingleChildScrollView(
           controller: _scrollController,
+          physics: const NeverScrollableScrollPhysics(), // Запрещаем скроллинг, если контент не выходит за пределы
           child: Stack(
             children: [
               RichText(
