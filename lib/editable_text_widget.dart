@@ -17,16 +17,17 @@ class EditableTextWidget extends StatefulWidget {
 
 class _EditableTextWidgetState extends State<EditableTextWidget> {
   late TextEditingController _textController;
+  late ScrollController _scrollController;
   late List<Color> _textColors;
   late List<String> _displayText;
   late List<bool> _hiddenWords;
   String _defaultText = '';
   int _cursorLogicalPosition = 0;
-  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
+    _scrollController = ScrollController();
     _initializeState();
   }
 
@@ -45,103 +46,18 @@ class _EditableTextWidgetState extends State<EditableTextWidget> {
     _textController.addListener(() {
       setState(() {
         _cursorLogicalPosition = _calculateLogicalCursorPosition(
-          _textController.selection.base.offset
+          _textController.selection.base.offset,
         );
+        _scrollToCursor();
       });
-      
-      _handleCursorVisibility();
     });
-  }
-
-  void _handleCursorVisibility() {
-    // Убираем задержку на следующий кадр для более быстрой реакции
-    if (!_scrollController.hasClients) return;
-
-    final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
-    if (keyboardHeight == 0) return;
-
-    // Увеличиваем размер буферной зоны для более раннего срабатывания прокрутки
-    const double bufferZone = 100.0; // Увеличенная зона упреждения
-    const double cursorPadding = 50.0; // Увеличенный отступ от курсора
-
-    // Оцениваем текущую и предполагаемую следующую позицию курсора
-    final currentPosition = _cursorLogicalPosition * 18.0;
-    final nextPosition = currentPosition + 18.0; // Предполагаем следующую позицию
-
-    final screenHeight = MediaQuery.of(context).size.height;
-    final visibleHeight = screenHeight - keyboardHeight;
-    
-    // Проверяем, не приближается ли курсор к краю видимой области
-    final bottomBoundary = _scrollController.offset + visibleHeight - keyboardHeight - bufferZone;
-    
-    if (nextPosition > bottomBoundary) {
-      // Прокручиваем с опережением
-      _scrollController.animateTo(
-        nextPosition - visibleHeight + keyboardHeight + cursorPadding,
-        duration: const Duration(milliseconds: 100), // Уменьшаем время анимации
-        curve: Curves.easeOut,
-      );
-    }
-  }
-
-  double _calculateTargetScroll(
-    double cursorPosition,
-    double visibleHeight,
-    double widgetHeight,
-    double keyboardHeight
-  ) {
-    // Отступ от верха клавиатуры для лучшей видимости
-    const double cursorPadding = 20.0;
-    
-    // Позиция курсора относительно начала виджета
-    final cursorOffset = cursorPosition + 50.0; // 50 - примерный отступ сверху
-    
-    // Нижняя граница видимой области с учётом клавиатуры
-    final bottomBoundary = _scrollController.offset + visibleHeight - keyboardHeight - cursorPadding;
-    
-    // Если курсор ниже видимой области
-    if (cursorOffset > bottomBoundary) {
-      return cursorOffset - visibleHeight + keyboardHeight + cursorPadding;
-    }
-    
-    // Если курсор выше видимой области
-    if (cursorOffset < _scrollController.offset + cursorPadding) {
-      return max(0, cursorOffset - cursorPadding);
-    }
-    
-    return _scrollController.offset;
-  }
-
-  // Метод для обеспечения видимости текущей позиции курсора
-  void _ensureVisible(int position) {
-    // Примерная оценка позиции в пикселях (18 - размер шрифта)
-    final double estimatedPosition = position * 18;
-    
-    final double screenHeight = MediaQuery.of(context).size.height;
-    final double viewportHeight = screenHeight - 100; // Учитываем отступы
-    
-    if (estimatedPosition > _scrollController.offset + viewportHeight) {
-      // Прокрутка вниз
-      _scrollController.animateTo(
-        estimatedPosition - viewportHeight + 50,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOut,
-      );
-    } else if (estimatedPosition < _scrollController.offset) {
-      // Прокрутка вверх
-      _scrollController.animateTo(
-        estimatedPosition - 50,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOut,
-      );
-    }
   }
 
   @override
   void didUpdateWidget(covariant EditableTextWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.inputString != oldWidget.inputString 
-      || widget.hiddenWordPercentage != oldWidget.hiddenWordPercentage) {
+    if (widget.inputString != oldWidget.inputString ||
+        widget.hiddenWordPercentage != oldWidget.hiddenWordPercentage) {
       setState(() {
         _initializeState();
       });
@@ -236,6 +152,26 @@ class _EditableTextWidgetState extends State<EditableTextWidget> {
     return _defaultText.length;
   }
 
+  void _scrollToCursor() {
+    final cursorOffset = _cursorLogicalPosition * 18.0; // Approximate character width.
+    final screenHeight = MediaQuery.of(context).size.height;
+    final lineHeight = 18.0; // Character height.
+
+    if (cursorOffset > _scrollController.offset + screenHeight - lineHeight) {
+      _scrollController.animateTo(
+        cursorOffset - screenHeight + lineHeight * 2,
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeInOut,
+      );
+    } else if (cursorOffset < _scrollController.offset) {
+      _scrollController.animateTo(
+        cursorOffset - lineHeight,
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
+
   @override
   void dispose() {
     _textController.dispose();
@@ -252,11 +188,10 @@ class _EditableTextWidgetState extends State<EditableTextWidget> {
             _displayText[i] = _defaultText[i];
             _textColors[i] = Colors.green;
           } else {
-            if(inputPos < inputText.length) {
+            if (inputPos < inputText.length) {
               _displayText[i] = inputText[inputPos];
               _textColors[i] = Colors.red;
-            }
-            else {
+            } else {
               _displayText[i] = '_';
               _textColors[i] = Colors.grey;
             }
@@ -269,87 +204,61 @@ class _EditableTextWidgetState extends State<EditableTextWidget> {
 
   @override
   Widget build(BuildContext context) {
-    return NotificationListener<ScrollNotification>(
-      onNotification: (notification) {
-        // Обрабатываем события скролла для более плавной работы
-        if (notification is ScrollUpdateNotification) {
-          _handleCursorVisibility();
-        }
-        return true;
-      },
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          return SingleChildScrollView(
-            controller: _scrollController,
-            physics: const BouncingScrollPhysics(), // Более отзывчивая физика скролла
-            child: Container(
-              constraints: BoxConstraints(
-                minHeight: constraints.maxHeight,
-              ),
-              decoration: const BoxDecoration(color: Colors.black),
-              child: Padding(
-                padding: EdgeInsets.only(
-                  left: 8.0,
-                  right: 8.0,
-                  top: 8.0,
-                  bottom: MediaQuery.of(context).viewInsets.bottom + 50.0, // Увеличиваем нижний отступ
-                ),
-                child: Stack(
-                  children: [
-                    RichText(
-                      text: TextSpan(
-                        children: List.generate(
-                          _defaultText.length,
-                          (i) => TextSpan(
-                            text: _displayText[i],
-                            style: TextStyle(
-                              backgroundColor: i == _cursorLogicalPosition && i != 0
-                                  ? Colors.white
-                                  : Colors.transparent,
-                              color: _textColors[i],
-                              fontSize: 18,
-                            ),
-                          ),
-                        ),
+    return Container(
+      decoration: const BoxDecoration(color: Colors.black),
+      child: Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: SingleChildScrollView(
+          controller: _scrollController,
+          child: Stack(
+            children: [
+              RichText(
+                text: TextSpan(
+                  children: List.generate(
+                    _defaultText.length,
+                    (i) => TextSpan(
+                      text: _displayText[i],
+                      style: TextStyle(
+                        backgroundColor: i == _cursorLogicalPosition && i != 0
+                            ? Colors.white
+                            : Colors.transparent,
+                        color: _textColors[i],
+                        fontSize: 18,
                       ),
                     ),
-                    Positioned.fill(
-                      child: TextField(
-                        controller: _textController,
-                        style: const TextStyle(
-                          color: Colors.transparent,
-                          fontSize: 18,
-                          height: 1.2,
-                        ),
-                        decoration: const InputDecoration(
-                          border: InputBorder.none,
-                          counterText: '',
-                        ),
-                        maxLines: null,
-                        cursorColor: Colors.transparent,
-                        onChanged: (value) {
-                          final filteredValue = value.replaceAll(RegExp(r'[\s\n\r]'), '');
-                          if (filteredValue != value) {
-                            _textController.text = filteredValue;
-                            _textController.selection = TextSelection.fromPosition(
-                              TextPosition(offset: filteredValue.length),
-                            );
-                          }
-                          _onTextChanged(filteredValue);
-                          
-                          // Немедленно проверяем необходимость прокрутки после изменения текста
-                          _handleCursorVisibility();
-                        },
-                        showCursor: false,
-                        keyboardType: TextInputType.visiblePassword,
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
-            ),
-          );
-        },
+              Positioned.fill(
+                child: TextField(
+                  controller: _textController,
+                  style: const TextStyle(
+                    color: Colors.transparent,
+                    fontSize: 18,
+                    height: 1.2,
+                  ),
+                  decoration: const InputDecoration(
+                    border: InputBorder.none,
+                    counterText: '',
+                  ),
+                  maxLines: null,
+                  cursorColor: Colors.transparent,
+                  onChanged: (value) {
+                    final filteredValue = value.replaceAll(RegExp(r'[\s\n\r]'), '');
+                    if (filteredValue != value) {
+                      _textController.text = filteredValue;
+                      _textController.selection = TextSelection.fromPosition(
+                        TextPosition(offset: filteredValue.length),
+                      );
+                    }
+                    _onTextChanged(filteredValue);
+                  },
+                  showCursor: false,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
