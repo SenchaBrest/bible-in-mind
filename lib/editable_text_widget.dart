@@ -234,57 +234,65 @@ Widget build(BuildContext context) {
       decoration: const BoxDecoration(color: Colors.black),
       child: Padding(
         padding: const EdgeInsets.all(8.0),
-        child: SingleChildScrollView(
-          controller: _scrollController,
-          physics: const NeverScrollableScrollPhysics(), // Запрещаем скроллинг, если контент не выходит за пределы
-          child: Stack(
-            children: [
-              RichText(
-                key: _richTextKey, // Добавляем GlobalKey
-                text: TextSpan(
-                  children: List.generate(
-                    _defaultText.length,
-                    (i) => TextSpan(
-                      text: _displayText[i],
-                      style: TextStyle(
-                        backgroundColor: i == _cursorLogicalPosition && i != 0
-                            ? Colors.white
-                            : Colors.transparent,
-                        color: _textColors[i],
-                        fontSize: 18,
+        child: NotificationListener<ScrollNotification>(
+          onNotification: (ScrollNotification notification) {
+            // Блокируем скроллинг, если контент уже полностью виден
+            if (_scrollController.position.pixels == _scrollController.position.maxScrollExtent) {
+              return true; // Блокируем событие прокрутки
+            }
+            return false; // Продолжаем обработку события
+          },
+          child: SingleChildScrollView(
+            controller: _scrollController,
+            child: Stack(
+              children: [
+                RichText(
+                  key: _richTextKey, // Добавляем GlobalKey
+                  text: TextSpan(
+                    children: List.generate(
+                      _defaultText.length,
+                      (i) => TextSpan(
+                        text: _displayText[i],
+                        style: TextStyle(
+                          backgroundColor: i == _cursorLogicalPosition && i != 0
+                              ? Colors.white
+                              : Colors.transparent,
+                          color: _textColors[i],
+                          fontSize: 18,
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-              Positioned.fill(
-                child: TextField(
-                  controller: _textController,
-                  style: const TextStyle(
-                    color: Colors.transparent,
-                    fontSize: 18,
-                    height: 1.2,
+                Positioned.fill(
+                  child: TextField(
+                    controller: _textController,
+                    style: const TextStyle(
+                      color: Colors.transparent,
+                      fontSize: 18,
+                      height: 1.2,
+                    ),
+                    decoration: const InputDecoration(
+                      border: InputBorder.none,
+                      counterText: '',
+                    ),
+                    maxLines: null,
+                    cursorColor: Colors.transparent,
+                    onChanged: (value) {
+                      final filteredValue = value.replaceAll(RegExp(r'[\s\n\r]'), '');
+                      if (filteredValue != value) {
+                        _textController.text = filteredValue;
+                        _textController.selection = TextSelection.fromPosition(
+                          TextPosition(offset: filteredValue.length),
+                        );
+                      }
+                      _onTextChanged(filteredValue);
+                    },
+                    showCursor: false,
                   ),
-                  decoration: const InputDecoration(
-                    border: InputBorder.none,
-                    counterText: '',
-                  ),
-                  maxLines: null,
-                  cursorColor: Colors.transparent,
-                  onChanged: (value) {
-                    final filteredValue = value.replaceAll(RegExp(r'[\s\n\r]'), '');
-                    if (filteredValue != value) {
-                      _textController.text = filteredValue;
-                      _textController.selection = TextSelection.fromPosition(
-                        TextPosition(offset: filteredValue.length),
-                      );
-                    }
-                    _onTextChanged(filteredValue);
-                  },
-                  showCursor: false,
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
