@@ -49,13 +49,72 @@ class _EditableTextWidgetState extends State<EditableTextWidget> {
         );
       });
       
-      // Автоматическая прокрутка при вводе текста
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_scrollController.hasClients) {
-          _ensureVisible(_cursorLogicalPosition);
-        }
-      });
+      _handleCursorVisibility();
     });
+  }
+
+  void _handleCursorVisibility() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scrollController.hasClients) return;
+
+      // Получаем текущий контекст клавиатуры
+      final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
+      if (keyboardHeight == 0) return;
+
+      // Оцениваем позицию курсора
+      final cursorPosition = _cursorLogicalPosition * 18.0; // 18 - размер шрифта
+      
+      // Получаем размеры экрана и виджета
+      final screenHeight = MediaQuery.of(context).size.height;
+      final widgetHeight = context.size?.height ?? 0;
+      
+      // Вычисляем видимую область с учётом клавиатуры
+      final visibleHeight = screenHeight - keyboardHeight;
+      
+      // Определяем позицию скролла для обеспечения видимости курсора
+      final targetScroll = _calculateTargetScroll(
+        cursorPosition,
+        visibleHeight,
+        widgetHeight,
+        keyboardHeight
+      );
+
+      if (targetScroll != _scrollController.offset) {
+        _scrollController.animateTo(
+          targetScroll,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  double _calculateTargetScroll(
+    double cursorPosition,
+    double visibleHeight,
+    double widgetHeight,
+    double keyboardHeight
+  ) {
+    // Отступ от верха клавиатуры для лучшей видимости
+    const double cursorPadding = 20.0;
+    
+    // Позиция курсора относительно начала виджета
+    final cursorOffset = cursorPosition + 50.0; // 50 - примерный отступ сверху
+    
+    // Нижняя граница видимой области с учётом клавиатуры
+    final bottomBoundary = _scrollController.offset + visibleHeight - keyboardHeight - cursorPadding;
+    
+    // Если курсор ниже видимой области
+    if (cursorOffset > bottomBoundary) {
+      return cursorOffset - visibleHeight + keyboardHeight + cursorPadding;
+    }
+    
+    // Если курсор выше видимой области
+    if (cursorOffset < _scrollController.offset + cursorPadding) {
+      return max(0, cursorOffset - cursorPadding);
+    }
+    
+    return _scrollController.offset;
   }
 
   // Метод для обеспечения видимости текущей позиции курсора
@@ -215,62 +274,78 @@ class _EditableTextWidgetState extends State<EditableTextWidget> {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      controller: _scrollController,
-      child: Container(
-        decoration: const BoxDecoration(color: Colors.black),
-        child: Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: Stack(
-            children: [
-              RichText(
-                text: TextSpan(
-                  children: List.generate(
-                    _defaultText.length,
-                    (i) => TextSpan(
-                      text: _displayText[i],
-                      style: TextStyle(
-                        backgroundColor: i == _cursorLogicalPosition && i != 0
-                            ? Colors.white
-                            : Colors.transparent,
-                        color: _textColors[i],
-                        fontSize: 18,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          controller: _scrollController,
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: Container(
+            // Устанавливаем минимальную высоту контейнера равной высоте родителя
+            constraints: BoxConstraints(
+              minHeight: constraints.maxHeight,
+            ),
+            decoration: const BoxDecoration(color: Colors.black),
+            child: Padding(
+              padding: EdgeInsets.only(
+                left: 8.0,
+                right: 8.0,
+                top: 8.0,
+                // Добавляем отступ снизу для предотвращения перекрытия текста клавиатурой
+                bottom: MediaQuery.of(context).viewInsets.bottom + 8.0,
+              ),
+              child: Stack(
+                children: [
+                  RichText(
+                    text: TextSpan(
+                      children: List.generate(
+                        _defaultText.length,
+                        (i) => TextSpan(
+                          text: _displayText[i],
+                          style: TextStyle(
+                            backgroundColor: i == _cursorLogicalPosition && i != 0
+                                ? Colors.white
+                                : Colors.transparent,
+                            color: _textColors[i],
+                            fontSize: 18,
+                          ),
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ),
-              Positioned.fill(
-                child: TextField(
-                  controller: _textController,
-                  style: const TextStyle(
-                    color: Colors.transparent,
-                    fontSize: 18,
-                    height: 1.2,
+                  Positioned.fill(
+                    child: TextField(
+                      controller: _textController,
+                      style: const TextStyle(
+                        color: Colors.transparent,
+                        fontSize: 18,
+                        height: 1.2,
+                      ),
+                      decoration: const InputDecoration(
+                        border: InputBorder.none,
+                        counterText: '',
+                      ),
+                      maxLines: null,
+                      cursorColor: Colors.transparent,
+                      onChanged: (value) {
+                        final filteredValue = value.replaceAll(RegExp(r'[\s\n\r]'), '');
+                        if (filteredValue != value) {
+                          _textController.text = filteredValue;
+                          _textController.selection = TextSelection.fromPosition(
+                            TextPosition(offset: filteredValue.length),
+                          );
+                        }
+                        _onTextChanged(filteredValue);
+                      },
+                      showCursor: false,
+                      keyboardType: TextInputType.visiblePassword, // Предотвращает автокоррекцию
+                    ),
                   ),
-                  decoration: const InputDecoration(
-                    border: InputBorder.none,
-                    counterText: '',
-                  ),
-                  maxLines: null,
-                  cursorColor: Colors.transparent,
-                  onChanged: (value) {
-                    final filteredValue = value.replaceAll(RegExp(r'[\s\n\r]'), '');
-                    if (filteredValue != value) {
-                      _textController.text = filteredValue;
-                      _textController.selection = TextSelection.fromPosition(
-                        TextPosition(offset: filteredValue.length),
-                      );
-                    }
-                    _onTextChanged(filteredValue);
-                  },
-                  showCursor: false,
-                ),
+                ],
               ),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }
