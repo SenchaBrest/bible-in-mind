@@ -198,30 +198,14 @@ class _EditableTextWidgetState extends State<EditableTextWidget> {
       final double lastEnteredCharOffset = _getLastEnteredCharacterOffset(renderBox);
       print(lastEnteredCharOffset);
 
-      // Проверяем, нужно ли прокручивать
-      if (_shouldScroll(lastEnteredCharOffset)) {
-        // Прокручиваем до позиции последнего введенного символа
-        _scrollController.animateTo(
-          lastEnteredCharOffset,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeInOut,
-        );
-      }
+      // Прокручиваем до позиции последнего введенного символа
+      _scrollController.animateTo(
+        lastEnteredCharOffset,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
     });
   });
-}
-
-bool _shouldScroll(double targetOffset) {
-  // Получаем текущие границы видимой области
-  final double viewportHeight = _scrollController.position.viewportDimension;
-  final double currentOffset = _scrollController.offset;
-
-  // Проверяем, находится ли целевая позиция уже в видимой области
-  if (targetOffset >= currentOffset && targetOffset <= currentOffset + viewportHeight) {
-    return false; // Прокрутка не требуется
-  }
-
-  return true; // Прокрутка требуется
 }
 
   double _getLastEnteredCharacterOffset(RenderBox renderBox) {
@@ -243,8 +227,10 @@ bool _shouldScroll(double targetOffset) {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
+Widget build(BuildContext context) {
+  return Scaffold(
+    resizeToAvoidBottomInset: false, // Отключаем автоматическое изменение размера
+    body: Container(
       decoration: const BoxDecoration(color: Colors.black),
       child: Padding(
         padding: const EdgeInsets.all(8.0),
@@ -253,7 +239,7 @@ bool _shouldScroll(double targetOffset) {
           child: Stack(
             children: [
               RichText(
-                key: _richTextKey,
+                key: _richTextKey, // Добавляем GlobalKey
                 text: TextSpan(
                   children: List.generate(
                     _defaultText.length,
@@ -301,6 +287,7 @@ bool _shouldScroll(double targetOffset) {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }
