@@ -187,21 +187,26 @@ class _EditableTextWidgetState extends State<EditableTextWidget> {
   }
 
   void _scrollToLastEnteredCharacter() {
+  // Ждем завершения текущего кадра перед вычислением координат
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    // Ждем еще один кадр, чтобы убедиться, что RichText обновился
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Future.microtask(() {
-        final RenderBox renderBox = _richTextKey.currentContext?.findRenderObject() as RenderBox;
+      // Получаем RenderObject для RichText
+      final RenderBox renderBox = _richTextKey.currentContext?.findRenderObject() as RenderBox;
 
-        final double lastEnteredCharOffset = _getLastEnteredCharacterOffset(renderBox);
-        print(lastEnteredCharOffset);
+      // Получаем координаты последнего введенного символа
+      final double lastEnteredCharOffset = _getLastEnteredCharacterOffset(renderBox);
+      print(lastEnteredCharOffset);
 
-        _scrollController.animateTo(
-          lastEnteredCharOffset,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeInOut,
-        );
-      });
+      // Прокручиваем до позиции последнего введенного символа
+      _scrollController.animateTo(
+        lastEnteredCharOffset,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
     });
-  }
+  });
+}
 
   double _getLastEnteredCharacterOffset(RenderBox renderBox) {
     final richText = _richTextKey.currentWidget as RichText;
