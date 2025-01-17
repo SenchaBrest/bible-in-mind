@@ -236,6 +236,7 @@ Widget build(BuildContext context) {
         padding: const EdgeInsets.all(8.0),
         child: CustomScrollView(
           controller: _scrollController,
+          physics: const ClampingScrollPhysics(), // Добавляем ClampingScrollPhysics
           slivers: [
             SliverFillRemaining(
               hasScrollBody: false, // Отключаем скроллинг, если контент помещается
