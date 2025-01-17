@@ -56,8 +56,8 @@ class HomeWidget extends StatefulWidget {
 }
 
 class _HomeWidgetState extends State<HomeWidget> {
-  String _value = "ллдлодол одлолдо  лдолдо  лдодло длодло д л л л л л лл  л л л л л л л л л л лл  л л л л л л  л л л л л л л лл ллдлодол одлолдо  лдолдо  лдодло длодло д л л л л л лл  л л л л л л л л л л лл  л л л л л л  л л л л л л л лл ллдлодол одлолдо  лдолдо  лдодло длодло д л л л л л лл  л л л л л л л л л л лл  л л л л л л  л л л л л л л лл ллдлодол одлолдо  лдолдо  лдодло длодло д л л л л л лл  л л л л л л л л л л лл  л л л л л л  л л л л л л л ллллдлодол одлолдо  лдолдо  лдодло длодло д л л л л л лл  л л л л л л л л л л лл  л л л л л л  л л л л л л л лл ";
-  double _hiddenWordPercentage = 0.8;
+  String _value = "";
+  double _hiddenWordPercentage = 0.5;
 
   void _updateValue(String newValue) {
     setState(() {

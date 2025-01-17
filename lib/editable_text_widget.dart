@@ -23,9 +23,7 @@ class _EditableTextWidgetState extends State<EditableTextWidget> {
   String _defaultText = '';
   int _cursorLogicalPosition = 0;
 
-  // Добавляем GlobalKey для RichText
   final GlobalKey _richTextKey = GlobalKey();
-  // Добавляем ScrollController для управления скроллингом
   final ScrollController _scrollController = ScrollController();
 
   @override
@@ -52,7 +50,7 @@ class _EditableTextWidgetState extends State<EditableTextWidget> {
           _textController.selection.base.offset,
         );
       });
-        _scrollToLastEnteredCharacter(); // Вызываем скроллинг при изменении текста
+        _scrollToLastEnteredCharacter();
     });
   }
 
@@ -65,6 +63,14 @@ class _EditableTextWidgetState extends State<EditableTextWidget> {
         _initializeState();
       });
     }
+  }
+
+  
+  @override
+  void dispose() {
+    _textController.dispose();
+    _scrollController.dispose();
+    super.dispose();
   }
 
   List<bool> _getHiddenWordsList(String text, double percentage) {
@@ -155,13 +161,6 @@ class _EditableTextWidgetState extends State<EditableTextWidget> {
     return _defaultText.length;
   }
 
-  @override
-  void dispose() {
-    _textController.dispose();
-    _scrollController.dispose();
-    super.dispose();
-  }
-
   void _onTextChanged(String inputText) {
     setState(() {
       int inputPos = 0;
@@ -187,18 +186,12 @@ class _EditableTextWidgetState extends State<EditableTextWidget> {
   }
 
   void _scrollToLastEnteredCharacter() {
-  // Ждем завершения текущего кадра перед вычислением координат
   WidgetsBinding.instance.addPostFrameCallback((_) {
-    // Ждем еще один кадр, чтобы убедиться, что RichText обновился
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // Получаем RenderObject для RichText
       final RenderBox renderBox = _richTextKey.currentContext?.findRenderObject() as RenderBox;
 
-      // Получаем координаты последнего введенного символа
       final double lastEnteredCharOffset = _getLastEnteredCharacterOffset(renderBox);
-      print(lastEnteredCharOffset);
 
-      // Прокручиваем до позиции последнего введенного символа
       _scrollController.animateTo(
         lastEnteredCharOffset,
         duration: const Duration(milliseconds: 300),
@@ -227,73 +220,73 @@ class _EditableTextWidgetState extends State<EditableTextWidget> {
   }
 
   @override
-Widget build(BuildContext context) {
-  return Scaffold(
-    resizeToAvoidBottomInset: false, // Отключаем автоматическое изменение размера
-    body: Container(
-      decoration: const BoxDecoration(color: Colors.black),
-      child: Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: CustomScrollView(
-          controller: _scrollController,
-          physics: const ClampingScrollPhysics(), // Добавляем ClampingScrollPhysics
-          slivers: [
-            SliverFillRemaining(
-              hasScrollBody: false, // Отключаем скроллинг, если контент помещается
-              child: Stack(
-                children: [
-                  RichText(
-                    key: _richTextKey, // Добавляем GlobalKey
-                    text: TextSpan(
-                      children: List.generate(
-                        _defaultText.length,
-                        (i) => TextSpan(
-                          text: _displayText[i],
-                          style: TextStyle(
-                            backgroundColor: i == _cursorLogicalPosition && i != 0
-                                ? Colors.white
-                                : Colors.transparent,
-                            color: _textColors[i],
-                            fontSize: 18,
+  Widget build(BuildContext context) {
+    return Scaffold(
+      resizeToAvoidBottomInset: false, 
+      body: Container(
+        decoration: const BoxDecoration(color: Colors.black),
+        child: Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: CustomScrollView(
+            controller: _scrollController,
+            physics: const ClampingScrollPhysics(),
+            slivers: [
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: Stack(
+                  children: [
+                    RichText(
+                      key: _richTextKey, 
+                      text: TextSpan(
+                        children: List.generate(
+                          _defaultText.length,
+                          (i) => TextSpan(
+                            text: _displayText[i],
+                            style: TextStyle(
+                              backgroundColor: i == _cursorLogicalPosition && i != 0
+                                  ? Colors.white
+                                  : Colors.transparent,
+                              color: _textColors[i],
+                              fontSize: 18,
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-                  Positioned.fill(
-                    child: TextField(
-                      controller: _textController,
-                      style: const TextStyle(
-                        color: Colors.transparent,
-                        fontSize: 18,
-                        height: 1.2,
+                    Positioned.fill(
+                      child: TextField(
+                        controller: _textController,
+                        style: const TextStyle(
+                          color: Colors.transparent,
+                          fontSize: 18,
+                          height: 1.2,
+                        ),
+                        decoration: const InputDecoration(
+                          border: InputBorder.none,
+                          counterText: '',
+                        ),
+                        maxLines: null,
+                        cursorColor: Colors.transparent,
+                        onChanged: (value) {
+                          final filteredValue = value.replaceAll(RegExp(r'[\s\n\r]'), '');
+                          if (filteredValue != value) {
+                            _textController.text = filteredValue;
+                            _textController.selection = TextSelection.fromPosition(
+                              TextPosition(offset: filteredValue.length),
+                            );
+                          }
+                          _onTextChanged(filteredValue);
+                        },
+                        showCursor: false,
                       ),
-                      decoration: const InputDecoration(
-                        border: InputBorder.none,
-                        counterText: '',
-                      ),
-                      maxLines: null,
-                      cursorColor: Colors.transparent,
-                      onChanged: (value) {
-                        final filteredValue = value.replaceAll(RegExp(r'[\s\n\r]'), '');
-                        if (filteredValue != value) {
-                          _textController.text = filteredValue;
-                          _textController.selection = TextSelection.fromPosition(
-                            TextPosition(offset: filteredValue.length),
-                          );
-                        }
-                        _onTextChanged(filteredValue);
-                      },
-                      showCursor: false,
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 }
