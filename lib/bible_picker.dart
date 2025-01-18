@@ -302,12 +302,6 @@ class _PickerWidgetState extends State<PickerWidget> {
                 setState(() {
                   currentPickerIndex -= 2;
                   widget.onTextChanged('');
-                  if (currentPickerIndex == 0) {
-                    selectedBook = books.first.name;
-                    currentBook = books.first;
-                    chapterNumbers = List.generate(currentBook!.chapters, (i) => i + 1);
-                    selectedChapter = chapterNumbers.isNotEmpty ? chapterNumbers.first : null;
-                  }
                 });
               },
             ),
