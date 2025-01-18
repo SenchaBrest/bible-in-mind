@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'models.dart';
 import 'api_service.dart';
 
@@ -15,71 +16,72 @@ class PickerWidget extends StatefulWidget {
 class _PickerWidgetState extends State<PickerWidget> {
   final ApiService apiService = ApiService();
 
-  List<Language> languages = [];
-  List<Translation> currentTranslations = [];
   List<Book> books = [];
   List<int> chapterNumbers = [];
   List<Verse> verses = [];
   List<int> verseNumbers = [];
 
-  String? selectedLanguage;
-  String? selectedTranslation;
   String? selectedBook;
   int? selectedChapter;
   int? selectedVerseStart;
   int? selectedVerseEnd;
   Book? currentBook;
 
-  bool isLoadingLanguages = true;
-  bool isLoadingBooks = false;
+  bool isLoadingBooks = true;
   bool isLoadingVerses = false;
 
   int currentPickerIndex = 0;
 
+  // Ключи для SharedPreferences
+  static const String _bookKey = 'selectedBook';
+  static const String _chapterKey = 'selectedChapter';
+  static const String _verseStartKey = 'selectedVerseStart';
+  static const String _verseEndKey = 'selectedVerseEnd';
+
   @override
   void initState() {
     super.initState();
-    fetchLanguages();
+    _loadSavedPreferences().then((_) {
+      fetchBooks(); // Загружаем книги после загрузки сохраненных значений
+    });
   }
 
-  Future<void> fetchLanguages() async {
+  // Загрузка сохраненных значений из SharedPreferences
+  Future<void> _loadSavedPreferences() async {
+    final prefs = await SharedPreferences.getInstance();
     setState(() {
-      isLoadingLanguages = true;
+      selectedBook = prefs.getString(_bookKey);
+      selectedChapter = prefs.getInt(_chapterKey);
+      selectedVerseStart = prefs.getInt(_verseStartKey);
+      selectedVerseEnd = prefs.getInt(_verseEndKey);
     });
-    try {
-      final fetchedLanguages = await apiService.fetchLanguages();
-      setState(() {
-        languages = fetchedLanguages;
-        if (languages.isNotEmpty) {
-          selectedLanguage = languages.first.language;
-          currentTranslations = languages.first.translations;
-          selectedTranslation = currentTranslations.isNotEmpty ? currentTranslations.first.shortName : null;
-        }
-      });
-    } catch (e) {
-      print('Error: $e');
-    } finally {
-      setState(() {
-        isLoadingLanguages = false;
-      });
-    }
+  }
+
+  // Сохранение значений в SharedPreferences
+  Future<void> _savePreferences() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_bookKey, selectedBook ?? '');
+    await prefs.setInt(_chapterKey, selectedChapter ?? 0);
+    await prefs.setInt(_verseStartKey, selectedVerseStart ?? 0);
+    await prefs.setInt(_verseEndKey, selectedVerseEnd ?? 0);
   }
 
   Future<void> fetchBooks() async {
-    if (selectedTranslation == null) return;
-    
     setState(() {
       isLoadingBooks = true;
     });
     try {
-      final fetchedBooks = await apiService.fetchBooks(selectedTranslation!);
+      final fetchedBooks = await apiService.fetchBooks("SYNOD");
       setState(() {
         books = fetchedBooks;
         if (books.isNotEmpty) {
-          selectedBook = books.first.name;
-          currentBook = books.first;
+          // Если книга была сохранена, выбираем ее, иначе первую книгу
+          selectedBook = selectedBook ?? books.first.name;
+          currentBook = books.firstWhere((b) => b.name == selectedBook);
           chapterNumbers = List.generate(currentBook!.chapters, (i) => i + 1);
-          selectedChapter = chapterNumbers.isNotEmpty ? chapterNumbers.first : null;
+          // Если глава была сохранена, выбираем ее, иначе первую главу
+          selectedChapter = selectedChapter ?? chapterNumbers.first;
+          fetchVerses(); // Загружаем стихи после выбора книги и главы
         }
       });
     } catch (e) {
@@ -92,24 +94,23 @@ class _PickerWidgetState extends State<PickerWidget> {
   }
 
   Future<void> fetchVerses() async {
-    if (selectedTranslation == null || currentBook == null || selectedChapter == null) return;
-    
+    if (currentBook == null || selectedChapter == null) return;
+
     setState(() {
       isLoadingVerses = true;
     });
     try {
       final fetchedVerses = await apiService.fetchChapterText(
-        selectedTranslation!,
+        "SYNOD",
         currentBook!.bookId.toString(),
-        selectedChapter.toString()
+        selectedChapter.toString(),
       );
       setState(() {
         verses = fetchedVerses;
         verseNumbers = verses.map((v) => v.verse).toList();
-        if (verseNumbers.isNotEmpty) {
-          selectedVerseStart = verseNumbers.first;
-          selectedVerseEnd = verseNumbers.first;
-        }
+        // Если стихи были сохранены, выбираем их, иначе первые стихи
+        selectedVerseStart = selectedVerseStart ?? verseNumbers.first;
+        selectedVerseEnd = selectedVerseEnd ?? verseNumbers.first;
       });
     } catch (e) {
       print('Error: $e');
@@ -120,33 +121,26 @@ class _PickerWidgetState extends State<PickerWidget> {
     }
   }
 
-  void onLanguageSelected(String language) {
-    setState(() {
-      selectedLanguage = language;
-      var selectedLang = languages.firstWhere((l) => l.language == language);
-      currentTranslations = selectedLang.translations;
-      selectedTranslation = currentTranslations.isNotEmpty ? currentTranslations.first.shortName : null;
-    });
-  }
-
-  void onTranslationSelected(String translation) {
-    setState(() {
-      selectedTranslation = translation;
-    });
-  }
-
   void onBookSelected(String book) {
     setState(() {
       selectedBook = book;
       currentBook = books.firstWhere((b) => b.name == book);
       chapterNumbers = List.generate(currentBook!.chapters, (i) => i + 1);
-      selectedChapter = chapterNumbers.isNotEmpty ? chapterNumbers.first : null;
+      selectedChapter = chapterNumbers.first; // Сбрасываем главу
+      selectedVerseStart = null; // Сбрасываем стихи
+      selectedVerseEnd = null;
+      _savePreferences(); // Сохраняем изменения
+      fetchVerses(); // Загружаем стихи после изменения книги
     });
   }
 
   void onChapterSelected(int chapter) {
     setState(() {
       selectedChapter = chapter;
+      selectedVerseStart = null; // Сбрасываем стихи
+      selectedVerseEnd = null;
+      _savePreferences(); // Сохраняем изменения
+      fetchVerses(); // Загружаем стихи после изменения главы
     });
   }
 
@@ -156,6 +150,7 @@ class _PickerWidgetState extends State<PickerWidget> {
       if (selectedVerseEnd! < verse) {
         selectedVerseEnd = verse;
       }
+      _savePreferences(); // Сохраняем изменения
     });
   }
 
@@ -163,6 +158,7 @@ class _PickerWidgetState extends State<PickerWidget> {
     setState(() {
       selectedVerseEnd = verse;
       widget.onTextChanged(getVersesWithText(verses, selectedVerseStart, selectedVerseEnd) ?? '');
+      _savePreferences(); // Сохраняем изменения
     });
   }
 
@@ -186,10 +182,8 @@ class _PickerWidgetState extends State<PickerWidget> {
   bool isNextPickerEnabled() {
     switch (currentPickerIndex) {
       case 0:
-        return selectedLanguage != null && selectedTranslation != null;
-      case 2:
         return selectedBook != null && selectedChapter != null;
-      case 4:
+      case 2:
         return selectedVerseStart != null;
       default:
         return false;
@@ -202,33 +196,13 @@ class _PickerWidgetState extends State<PickerWidget> {
         return Row(
           children: [
             buildPicker(
-              languages,
-              "Язык",
-              isLoadingLanguages,
-              (index) => onLanguageSelected(languages[index].language),
-              (item) => item.language,
-              ValueKey('languagePicker-${languages.length}'),
-            ),
-            buildPicker(
-              currentTranslations,
-              "Перевод",
-              false,
-              (index) => onTranslationSelected(currentTranslations[index].shortName),
-              (item) => item.shortName,
-              ValueKey('translationPicker-${currentTranslations.length}'),
-            ),
-          ],
-        );
-      case 2:
-        return Row(
-          children: [
-            buildPicker(
               books,
               "Книга",
               isLoadingBooks,
               (index) => onBookSelected(books[index].name),
               (item) => item.name,
-              ValueKey('bookPicker-${books.length}'),
+              ValueKey('bookPicker-${books.length}-${selectedBook}'),
+              initialItem: books.indexWhere((b) => b.name == selectedBook),
             ),
             buildPicker(
               chapterNumbers,
@@ -236,11 +210,12 @@ class _PickerWidgetState extends State<PickerWidget> {
               false,
               (index) => onChapterSelected(chapterNumbers[index]),
               (item) => item.toString(),
-              ValueKey('chapterPicker-${chapterNumbers.length}'),
+              ValueKey('chapterPicker-${chapterNumbers.length}-${selectedChapter}'),
+              initialItem: chapterNumbers.indexOf(selectedChapter ?? 1),
             ),
           ],
         );
-      case 4:
+      case 2:
         var availableVerses = verseNumbers.where((v) => selectedVerseStart != null && v >= selectedVerseStart!).toList();
         return Row(
           children: [
@@ -250,7 +225,8 @@ class _PickerWidgetState extends State<PickerWidget> {
               isLoadingVerses,
               (index) => onVerseStartSelected(verseNumbers[index]),
               (item) => item.toString(),
-              ValueKey('verseStartPicker-${verseNumbers.length}'),
+              ValueKey('verseStartPicker-${verseNumbers.length}-${selectedVerseStart}'),
+              initialItem: verseNumbers.indexOf(selectedVerseStart ?? 1),
             ),
             buildPicker(
               availableVerses,
@@ -258,7 +234,8 @@ class _PickerWidgetState extends State<PickerWidget> {
               false,
               (index) => onVerseEndSelected(availableVerses[index]),
               (item) => item.toString(),
-              ValueKey('verseEndPicker-${availableVerses.length}'),
+              ValueKey('verseEndPicker-${availableVerses.length}-${selectedVerseEnd}'),
+              initialItem: availableVerses.indexOf(selectedVerseEnd ?? 1),
             ),
           ],
         );
@@ -273,8 +250,9 @@ class _PickerWidgetState extends State<PickerWidget> {
     bool isLoading,
     Function(int) onSelectedItemChanged,
     String Function(dynamic) itemLabelBuilder,
-    Key key,
-  ) {
+    Key key, {
+    int initialItem = 0,
+  }) {
     return Column(
       children: [
         SizedBox(
@@ -296,7 +274,7 @@ class _PickerWidgetState extends State<PickerWidget> {
           child: isLoading
               ? const Center(child: CircularProgressIndicator())
               : CupertinoPicker(
-                  scrollController: FixedExtentScrollController(initialItem: 0),
+                  scrollController: FixedExtentScrollController(initialItem: initialItem),
                   itemExtent: 24.0,
                   onSelectedItemChanged: onSelectedItemChanged,
                   children: items.map((item) => Text(itemLabelBuilder(item))).toList(),
@@ -309,57 +287,53 @@ class _PickerWidgetState extends State<PickerWidget> {
   @override
   Widget build(BuildContext context) {
     bool canGoBack = currentPickerIndex > 0;
-    bool canGoForward = currentPickerIndex < 4 && isNextPickerEnabled();
+    bool canGoForward = currentPickerIndex < 2 && isNextPickerEnabled();
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        SizedBox(
-          width: MediaQuery.of(context).size.width * 0.1,
-          height: 100,
-          child: IconButton(
-            icon: const Icon(Icons.arrow_back),
-            onPressed: canGoBack
-                ? () {
-                    setState(() {
-                      currentPickerIndex -= 2;
-                      widget.onTextChanged('');
-                      if (currentPickerIndex == 2) {
-                        selectedBook = books.first.name;
-                        currentBook = books.first;
-                        chapterNumbers = List.generate(currentBook!.chapters, (i) => i + 1);
-                        selectedChapter = chapterNumbers.isNotEmpty ? chapterNumbers.first : null;
-                      }
-                    });
+        if (canGoBack)
+          SizedBox(
+            width: MediaQuery.of(context).size.width * 0.1,
+            height: 100,
+            child: IconButton(
+              icon: const Icon(Icons.arrow_back),
+              onPressed: () {
+                setState(() {
+                  currentPickerIndex -= 2;
+                  widget.onTextChanged('');
+                  if (currentPickerIndex == 0) {
+                    selectedBook = books.first.name;
+                    currentBook = books.first;
+                    chapterNumbers = List.generate(currentBook!.chapters, (i) => i + 1);
+                    selectedChapter = chapterNumbers.isNotEmpty ? chapterNumbers.first : null;
                   }
-                : null,
+                });
+              },
+            ),
           ),
-        ),
         buildCurrentPicker(),
-        SizedBox(
-          width: MediaQuery.of(context).size.width * 0.1,
-          height: 100,
-          child: IconButton(
-            icon: const Icon(Icons.arrow_forward),
-            onPressed: canGoForward
-                ? () async {
-                    if (currentPickerIndex == 0) {
-                      await fetchBooks();
-                    } else if (currentPickerIndex == 2) {
-                      await fetchVerses();
-                    }
-                    setState(() {
-                      currentPickerIndex += 2;
-                      if (currentPickerIndex == 4) {
-                        widget.onTextChanged(
-                          getVersesWithText(verses, selectedVerseStart, selectedVerseEnd) ?? ''
-                        );
-                      }
-                    });
+        if (canGoForward)
+          SizedBox(
+            width: MediaQuery.of(context).size.width * 0.1,
+            height: 100,
+            child: IconButton(
+              icon: const Icon(Icons.arrow_forward),
+              onPressed: () async {
+                if (currentPickerIndex == 0) {
+                  await fetchVerses();
+                }
+                setState(() {
+                  currentPickerIndex += 2;
+                  if (currentPickerIndex == 2) {
+                    widget.onTextChanged(
+                      getVersesWithText(verses, selectedVerseStart, selectedVerseEnd) ?? '',
+                    );
                   }
-                : null,
+                });
+              },
+            ),
           ),
-        ),
       ],
     );
   }

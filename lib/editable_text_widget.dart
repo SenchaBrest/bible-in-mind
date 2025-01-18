@@ -186,20 +186,20 @@ class _EditableTextWidgetState extends State<EditableTextWidget> {
   }
 
   void _scrollToLastEnteredCharacter() {
-  WidgetsBinding.instance.addPostFrameCallback((_) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final RenderBox renderBox = _richTextKey.currentContext?.findRenderObject() as RenderBox;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final RenderBox renderBox = _richTextKey.currentContext?.findRenderObject() as RenderBox;
 
-      final double lastEnteredCharOffset = _getLastEnteredCharacterOffset(renderBox);
+        final double lastEnteredCharOffset = _getLastEnteredCharacterOffset(renderBox);
 
-      _scrollController.animateTo(
-        lastEnteredCharOffset,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-      );
+        _scrollController.animateTo(
+          lastEnteredCharOffset,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+        );
+      });
     });
-  });
-}
+  }
 
   double _getLastEnteredCharacterOffset(RenderBox renderBox) {
     final richText = _richTextKey.currentWidget as RichText;
@@ -216,7 +216,10 @@ class _EditableTextWidgetState extends State<EditableTextWidget> {
       Rect.zero,
     );
 
-    return offset.dy;
+    final double lineHeight = textPainter.preferredLineHeight;
+    final double offsetAboveCursor = offset.dy - lineHeight * 1;
+
+    return max(0, offsetAboveCursor);
   }
 
   @override
