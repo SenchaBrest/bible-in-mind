@@ -32,7 +32,6 @@ class _PickerWidgetState extends State<PickerWidget> {
 
   int currentPickerIndex = 0;
 
-  // Ключи для SharedPreferences
   static const String _bookKey = 'selectedBook';
   static const String _chapterKey = 'selectedChapter';
 
@@ -40,11 +39,10 @@ class _PickerWidgetState extends State<PickerWidget> {
   void initState() {
     super.initState();
     _loadSavedPreferences().then((_) {
-      fetchBooks(); // Загружаем книги после загрузки сохраненных значений
+      fetchBooks();
     });
   }
 
-  // Загрузка сохраненных значений из SharedPreferences
   Future<void> _loadSavedPreferences() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
@@ -53,7 +51,6 @@ class _PickerWidgetState extends State<PickerWidget> {
     });
   }
 
-  // Сохранение значений в SharedPreferences
   Future<void> _savePreferences() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_bookKey, selectedBook ?? '');
@@ -69,11 +66,9 @@ class _PickerWidgetState extends State<PickerWidget> {
       setState(() {
         books = fetchedBooks;
         if (books.isNotEmpty) {
-          // Если книга была сохранена, выбираем ее, иначе первую книгу
           selectedBook = selectedBook ?? books.first.name;
           currentBook = books.firstWhere((b) => b.name == selectedBook);
           chapterNumbers = List.generate(currentBook!.chapters, (i) => i + 1);
-          // Если глава была сохранена, выбираем ее, иначе первую главу
           selectedChapter = selectedChapter ?? chapterNumbers.first;
         }
       });
@@ -102,11 +97,9 @@ class _PickerWidgetState extends State<PickerWidget> {
         verses = fetchedVerses;
         verseNumbers = verses.map((v) => v.verse).toList();
 
-        // Устанавливаем начальные значения для стихов
         selectedVerseStart = verseNumbers.first;
         selectedVerseEnd = verseNumbers.first;
 
-        // Обновляем текст, если стихи уже выбраны
         if (selectedVerseStart != null && selectedVerseEnd != null) {
           widget.onTextChanged(
             getVersesWithText(verses, selectedVerseStart, selectedVerseEnd) ?? '',
@@ -127,15 +120,13 @@ class _PickerWidgetState extends State<PickerWidget> {
       selectedBook = book;
       currentBook = books.firstWhere((b) => b.name == book);
       chapterNumbers = List.generate(currentBook!.chapters, (i) => i + 1);
-      selectedChapter = chapterNumbers.first; // Сбрасываем главу
-      _savePreferences(); // Сохраняем изменения
+      selectedChapter = chapterNumbers.first;
     });
   }
 
   void onChapterSelected(int chapter) {
     setState(() {
       selectedChapter = chapter;
-      _savePreferences(); // Сохраняем изменения
     });
   }
 
@@ -194,7 +185,7 @@ class _PickerWidgetState extends State<PickerWidget> {
               isLoadingBooks,
               (index) => onBookSelected(books[index].name),
               (item) => item.name,
-              ValueKey('bookPicker-${books.length}-${selectedBook}'),
+              ValueKey('bookPicker-${books.length}-$selectedBook'),
               initialItem: books.indexWhere((b) => b.name == selectedBook),
             ),
             buildPicker(
@@ -203,7 +194,7 @@ class _PickerWidgetState extends State<PickerWidget> {
               false,
               (index) => onChapterSelected(chapterNumbers[index]),
               (item) => item.toString(),
-              ValueKey('chapterPicker-${chapterNumbers.length}-${selectedChapter}'),
+              ValueKey('chapterPicker-${chapterNumbers.length}-$selectedChapter'),
               initialItem: chapterNumbers.indexOf(selectedChapter ?? 1),
             ),
           ],
@@ -218,7 +209,7 @@ class _PickerWidgetState extends State<PickerWidget> {
               isLoadingVerses,
               (index) => onVerseStartSelected(verseNumbers[index]),
               (item) => item.toString(),
-              ValueKey('verseStartPicker-${verseNumbers.length}-${selectedVerseStart}'),
+              ValueKey('verseStartPicker-${verseNumbers.length}-$selectedVerseStart'),
               initialItem: verseNumbers.indexOf(selectedVerseStart ?? 1),
             ),
             buildPicker(
@@ -227,7 +218,7 @@ class _PickerWidgetState extends State<PickerWidget> {
               false,
               (index) => onVerseEndSelected(availableVerses[index]),
               (item) => item.toString(),
-              ValueKey('verseEndPicker-${availableVerses.length}-${selectedVerseEnd}'),
+              ValueKey('verseEndPicker-${availableVerses.length}-$selectedVerseEnd'),
               initialItem: availableVerses.indexOf(selectedVerseEnd ?? 1),
             ),
           ],
@@ -293,8 +284,8 @@ class _PickerWidgetState extends State<PickerWidget> {
               icon: const Icon(Icons.arrow_back),
               onPressed: () {
                 setState(() {
-                  currentPickerIndex -= 2; // Уменьшаем индекс пикера
-                  widget.onTextChanged(''); // Сбрасываем текст
+                  currentPickerIndex -= 2;
+                  widget.onTextChanged('');
                 });
               },
             ),
@@ -308,7 +299,8 @@ class _PickerWidgetState extends State<PickerWidget> {
               icon: const Icon(Icons.arrow_forward),
               onPressed: () async {
                 if (currentPickerIndex == 0) {
-                  await fetchVerses(); // Загружаем стихи только после нажатия кнопки
+                  await _savePreferences();
+                  await fetchVerses();
                 }
                 setState(() {
                   currentPickerIndex += 2;
