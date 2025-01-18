@@ -34670,7 +34670,7 @@ if(c)q=B.z7
 else{q=A.ald(g)
 p=J.is(a,new A.abB(e),t.As)
 p=A.a1(p,!0,p.$ti.i("am.E"))
-q=new A.tF(q,32,d,new A.Yp(p),o)}return A.SO(A.b([new A.dG(n.a.a*0.4,40,r,o),new A.dG(s.a.a*0.4,100,q,f)],t.E),B.bn,B.cO)},
+q=new A.tF(q,24,d,new A.Yp(p),o)}return A.SO(A.b([new A.dG(n.a.a*0.4,40,r,o),new A.dG(s.a.a*0.4,100,q,f)],t.E),B.bn,B.cO)},
 S(a){var s=this,r=null,q=s.ay,p=q<2&&s.adF(),o=A.b([],t.E)
 if(q>0)o.push(new A.dG(A.bu(a,r,t.w).w.a.a*0.1,100,A.ahw(B.BV,new A.abE(s),r),r))
 o.push(s.a93())

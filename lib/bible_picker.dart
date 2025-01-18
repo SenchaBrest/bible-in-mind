@@ -259,7 +259,7 @@ class _PickerWidgetState extends State<PickerWidget> {
               ? const Center(child: CircularProgressIndicator())
               : CupertinoPicker(
                   scrollController: FixedExtentScrollController(initialItem: initialItem),
-                  itemExtent: 32.0,
+                  itemExtent: 24.0,
                   onSelectedItemChanged: onSelectedItemChanged,
                   children: items
                     .map((item) => 
