@@ -261,7 +261,17 @@ class _PickerWidgetState extends State<PickerWidget> {
                   scrollController: FixedExtentScrollController(initialItem: initialItem),
                   itemExtent: 24.0,
                   onSelectedItemChanged: onSelectedItemChanged,
-                  children: items.map((item) => Text(itemLabelBuilder(item))).toList(),
+                  children: items
+                    .map((item) => 
+                    Text(
+                      itemLabelBuilder(item),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      softWrap: false,
+                      style: const TextStyle(fontSize: 16),
+                    )
+                    )
+                  .toList(),
                 ),
         ),
       ],
