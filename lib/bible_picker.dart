@@ -35,8 +35,6 @@ class _PickerWidgetState extends State<PickerWidget> {
   // Ключи для SharedPreferences
   static const String _bookKey = 'selectedBook';
   static const String _chapterKey = 'selectedChapter';
-  static const String _verseStartKey = 'selectedVerseStart';
-  static const String _verseEndKey = 'selectedVerseEnd';
 
   @override
   void initState() {
@@ -52,8 +50,6 @@ class _PickerWidgetState extends State<PickerWidget> {
     setState(() {
       selectedBook = prefs.getString(_bookKey);
       selectedChapter = prefs.getInt(_chapterKey);
-      selectedVerseStart = prefs.getInt(_verseStartKey);
-      selectedVerseEnd = prefs.getInt(_verseEndKey);
     });
   }
 
@@ -62,8 +58,6 @@ class _PickerWidgetState extends State<PickerWidget> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_bookKey, selectedBook ?? '');
     await prefs.setInt(_chapterKey, selectedChapter ?? 0);
-    await prefs.setInt(_verseStartKey, selectedVerseStart ?? 0);
-    await prefs.setInt(_verseEndKey, selectedVerseEnd ?? 0);
   }
 
   Future<void> fetchBooks() async {
@@ -81,11 +75,6 @@ class _PickerWidgetState extends State<PickerWidget> {
           chapterNumbers = List.generate(currentBook!.chapters, (i) => i + 1);
           // Если глава была сохранена, выбираем ее, иначе первую главу
           selectedChapter = selectedChapter ?? chapterNumbers.first;
-
-          // Загружаем стихи, если книга и глава уже выбраны
-          if (selectedBook != null && selectedChapter != null) {
-            fetchVerses();
-          }
         }
       });
     } catch (e) {
@@ -113,9 +102,9 @@ class _PickerWidgetState extends State<PickerWidget> {
         verses = fetchedVerses;
         verseNumbers = verses.map((v) => v.verse).toList();
 
-        // Если стихи были сохранены, выбираем их, иначе первые стихи
-        selectedVerseStart = selectedVerseStart ?? verseNumbers.first;
-        selectedVerseEnd = selectedVerseEnd ?? verseNumbers.first;
+        // Устанавливаем начальные значения для стихов
+        selectedVerseStart = verseNumbers.first;
+        selectedVerseEnd = verseNumbers.first;
 
         // Обновляем текст, если стихи уже выбраны
         if (selectedVerseStart != null && selectedVerseEnd != null) {
@@ -139,20 +128,14 @@ class _PickerWidgetState extends State<PickerWidget> {
       currentBook = books.firstWhere((b) => b.name == book);
       chapterNumbers = List.generate(currentBook!.chapters, (i) => i + 1);
       selectedChapter = chapterNumbers.first; // Сбрасываем главу
-      selectedVerseStart = null; // Сбрасываем стихи
-      selectedVerseEnd = null;
       _savePreferences(); // Сохраняем изменения
-      fetchVerses(); // Загружаем стихи после изменения книги
     });
   }
 
   void onChapterSelected(int chapter) {
     setState(() {
       selectedChapter = chapter;
-      selectedVerseStart = null; // Сбрасываем стихи
-      selectedVerseEnd = null;
       _savePreferences(); // Сохраняем изменения
-      fetchVerses(); // Загружаем стихи после изменения главы
     });
   }
 
@@ -162,7 +145,6 @@ class _PickerWidgetState extends State<PickerWidget> {
       if (selectedVerseEnd! < verse) {
         selectedVerseEnd = verse;
       }
-      _savePreferences(); // Сохраняем изменения
     });
   }
 
@@ -170,7 +152,6 @@ class _PickerWidgetState extends State<PickerWidget> {
     setState(() {
       selectedVerseEnd = verse;
       widget.onTextChanged(getVersesWithText(verses, selectedVerseStart, selectedVerseEnd) ?? '');
-      _savePreferences(); // Сохраняем изменения
     });
   }
 
@@ -327,7 +308,7 @@ class _PickerWidgetState extends State<PickerWidget> {
               icon: const Icon(Icons.arrow_forward),
               onPressed: () async {
                 if (currentPickerIndex == 0) {
-                  await fetchVerses();
+                  await fetchVerses(); // Загружаем стихи только после нажатия кнопки
                 }
                 setState(() {
                   currentPickerIndex += 2;
