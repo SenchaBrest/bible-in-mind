@@ -81,7 +81,11 @@ class _PickerWidgetState extends State<PickerWidget> {
           chapterNumbers = List.generate(currentBook!.chapters, (i) => i + 1);
           // Если глава была сохранена, выбираем ее, иначе первую главу
           selectedChapter = selectedChapter ?? chapterNumbers.first;
-          fetchVerses(); // Загружаем стихи после выбора книги и главы
+
+          // Загружаем стихи, если книга и глава уже выбраны
+          if (selectedBook != null && selectedChapter != null) {
+            fetchVerses();
+          }
         }
       });
     } catch (e) {
@@ -108,9 +112,17 @@ class _PickerWidgetState extends State<PickerWidget> {
       setState(() {
         verses = fetchedVerses;
         verseNumbers = verses.map((v) => v.verse).toList();
+
         // Если стихи были сохранены, выбираем их, иначе первые стихи
         selectedVerseStart = selectedVerseStart ?? verseNumbers.first;
         selectedVerseEnd = selectedVerseEnd ?? verseNumbers.first;
+
+        // Обновляем текст, если стихи уже выбраны
+        if (selectedVerseStart != null && selectedVerseEnd != null) {
+          widget.onTextChanged(
+            getVersesWithText(verses, selectedVerseStart, selectedVerseEnd) ?? '',
+          );
+        }
       });
     } catch (e) {
       print('Error: $e');
@@ -300,8 +312,8 @@ class _PickerWidgetState extends State<PickerWidget> {
               icon: const Icon(Icons.arrow_back),
               onPressed: () {
                 setState(() {
-                  currentPickerIndex -= 2;
-                  widget.onTextChanged('');
+                  currentPickerIndex -= 2; // Уменьшаем индекс пикера
+                  widget.onTextChanged(''); // Сбрасываем текст
                 });
               },
             ),
